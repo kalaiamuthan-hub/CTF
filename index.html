@@ -5123,7 +5123,15 @@ function init(){
    /* =========================================================
    ADMIN TIMER BUTTON COMPATIBILITY
    ========================================================= */
-
+window.CRYPTX_TIMER = {
+    get: getTimer,
+    save: saveTimer,
+    start: startEventTimer,
+    pause: pauseEventTimer,
+    reset: resetEventTimer,
+    subscribe: subscribeTimer,
+    updateDisplay: updateTimerDisplay
+};
 window.startTimer = async function () {
     const ok = await startEventTimer(7200);
 
