@@ -5156,5 +5156,1168 @@ attachFirebaseSession();
 </script>
 
 <script>window.addEventListener("error",e=>console.error("[CRYPTX]",e.error||e.message));window.addEventListener("unhandledrejection",e=>console.error("[CRYPTX] Unhandled promise rejection:",e.reason));</script>
+   <!-- =========================================================
+     CRYPTX FIRESTORE MIGRATION
+     localStorage EVENT DATA -> FIRESTORE
+     ========================================================= -->
+
+<script type="module">
+
+import {
+    collection,
+    doc,
+    getDocs,
+    setDoc,
+    updateDoc,
+    deleteDoc,
+    onSnapshot,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+
+/* =========================================================
+   WAIT FOR FIREBASE
+   ========================================================= */
+
+function waitForFirebase(){
+
+    return new Promise(resolve => {
+
+        if(
+            window.db &&
+            window.auth &&
+            window.CRYPTX_AUTH_READY
+        ){
+            resolve();
+            return;
+        }
+
+        const check = () => {
+
+            if(
+                window.db &&
+                window.auth &&
+                window.CRYPTX_AUTH_READY
+            ){
+                window.removeEventListener(
+                    "cryptx-firebase-ready",
+                    check
+                );
+
+                resolve();
+            }
+
+        };
+
+        window.addEventListener(
+            "cryptx-firebase-ready",
+            check
+        );
+
+    });
+
+}
+
+
+await waitForFirebase();
+
+
+const db = window.db;
+const auth = window.auth;
+
+
+/* =========================================================
+   FIRESTORE CACHE
+   ========================================================= */
+
+window.CRYPTX_FIRESTORE = {
+
+    players: [],
+    challenges: [],
+    submissions: [],
+    announcements: [],
+    website: null,
+    timer: null
+
+};
+
+
+/* =========================================================
+   PLAYERS
+   ========================================================= */
+
+window.getPlayers = function(){
+
+    return window.CRYPTX_FIRESTORE.players || [];
+
+};
+
+
+window.savePlayers = async function(players){
+
+    if(!Array.isArray(players)) return;
+
+    for(const player of players){
+
+        if(!player?.id) continue;
+
+        try{
+
+            await setDoc(
+                doc(db,"users",player.id),
+                {
+                    uid:player.id,
+                    username:player.username || "",
+                    email:player.email || "",
+                    score:Number(player.score || 0),
+                    solved:Array.isArray(player.solved)
+                        ? player.solved
+                        : [],
+                    disabled:Boolean(player.disabled),
+                    updatedAt:serverTimestamp()
+                },
+                {
+                    merge:true
+                }
+            );
+
+        }catch(error){
+
+            console.error(
+                "Player Firestore save error:",
+                error
+            );
+
+        }
+
+    }
+
+};
+
+
+/* =========================================================
+   CHALLENGES
+   ========================================================= */
+
+window.getChallenges = function(){
+
+    return (
+        window.CRYPTX_FIRESTORE.challenges || []
+    ).map(challenge => {
+
+        const safe = {
+            ...challenge
+        };
+
+        /*
+         * NEVER expose the flag to public UI.
+         */
+        delete safe.flag;
+
+        return safe;
+
+    });
+
+};
+
+
+window.saveChallenges = async function(challenges){
+
+    if(!Array.isArray(challenges)) return;
+
+    for(const challenge of challenges){
+
+        if(!challenge?.id) continue;
+
+        const safe = {
+            ...challenge
+        };
+
+        delete safe.flag;
+
+        try{
+
+            await setDoc(
+                doc(db,"challenges",challenge.id),
+                {
+                    ...safe,
+                    updatedAt:serverTimestamp()
+                },
+                {
+                    merge:true
+                }
+            );
+
+        }catch(error){
+
+            console.error(
+                "Challenge Firestore save error:",
+                error
+            );
+
+        }
+
+    }
+
+};
+
+
+/* =========================================================
+   SUBMISSIONS
+   ========================================================= */
+
+window.getSubmissions = function(){
+
+    return (
+        window.CRYPTX_FIRESTORE.submissions || []
+    );
+
+};
+
+
+window.saveSubmissions = function(){
+
+    /*
+     * Submissions are written directly to Firestore.
+     * Do not store them in localStorage.
+     */
+
+    console.warn(
+        "CRYPTX: submissions are Firestore-only."
+    );
+
+};
+
+
+/* =========================================================
+   ANNOUNCEMENTS
+   ========================================================= */
+
+window.getAnnouncements = function(){
+
+    return (
+        window.CRYPTX_FIRESTORE.announcements || []
+    );
+
+};
+
+
+/* =========================================================
+   WEBSITE SETTINGS
+   ========================================================= */
+
+window.getWebsite = function(){
+
+    return (
+        window.CRYPTX_FIRESTORE.website ||
+        window.DEFAULT_WEBSITE ||
+        {
+            eventName:"CRYPTX",
+            organizer:"CRYPTX SECURITY CLUB",
+            heroDescription:"",
+            rulesDescription:""
+        }
+    );
+
+};
+
+
+/* =========================================================
+   PLAYER LISTENER
+   ========================================================= */
+
+function listenPlayers(){
+
+    onSnapshot(
+        collection(db,"users"),
+
+        snapshot => {
+
+            window.CRYPTX_FIRESTORE.players =
+                snapshot.docs.map(item => ({
+                    id:item.id,
+                    ...item.data()
+                }));
+
+
+            console.log(
+                "CRYPTX Firebase Players:",
+                window.CRYPTX_FIRESTORE.players.length
+            );
+
+
+            refreshAllUI();
+
+        },
+
+        error => {
+
+            console.error(
+                "Players listener error:",
+                error
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   CHALLENGE LISTENER
+   ========================================================= */
+
+function listenChallenges(){
+
+    onSnapshot(
+        collection(db,"challenges"),
+
+        snapshot => {
+
+            window.CRYPTX_FIRESTORE.challenges =
+                snapshot.docs
+                .map(item => ({
+                    id:item.id,
+                    ...item.data()
+                }))
+                .filter(
+                    challenge =>
+                        challenge.active !== false
+                );
+
+
+            console.log(
+                "CRYPTX Firebase Challenges:",
+                window.CRYPTX_FIRESTORE.challenges.length
+            );
+
+
+            refreshAllUI();
+
+        },
+
+        error => {
+
+            console.error(
+                "Challenges listener error:",
+                error
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   SUBMISSION LISTENER
+   ========================================================= */
+
+function listenSubmissions(){
+
+    onSnapshot(
+        collection(db,"submissions"),
+
+        snapshot => {
+
+            window.CRYPTX_FIRESTORE.submissions =
+                snapshot.docs.map(item => ({
+                    id:item.id,
+                    ...item.data()
+                }));
+
+
+            console.log(
+                "CRYPTX Firebase Submissions:",
+                window.CRYPTX_FIRESTORE.submissions.length
+            );
+
+
+            refreshAllUI();
+
+        },
+
+        error => {
+
+            /*
+             * If Firestore Rules correctly block
+             * normal players from reading submissions,
+             * this error is expected for non-admin users.
+             */
+
+            console.warn(
+                "Submission listener:",
+                error.message
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   ANNOUNCEMENT LISTENER
+   ========================================================= */
+
+function listenAnnouncements(){
+
+    onSnapshot(
+        collection(db,"announcements"),
+
+        snapshot => {
+
+            window.CRYPTX_FIRESTORE.announcements =
+                snapshot.docs.map(item => ({
+                    id:item.id,
+                    ...item.data()
+                }));
+
+
+            if(
+                typeof window.renderAnnouncements ===
+                "function"
+            ){
+
+                window.renderAnnouncements();
+
+            }
+
+        },
+
+        error => {
+
+            console.warn(
+                "Announcements listener:",
+                error.message
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   WEBSITE SETTINGS LISTENER
+   ========================================================= */
+
+function listenWebsite(){
+
+    onSnapshot(
+        doc(db,"settings","website"),
+
+        snapshot => {
+
+            if(snapshot.exists()){
+
+                window.CRYPTX_FIRESTORE.website =
+                    snapshot.data();
+
+            }
+
+            if(
+                typeof window.applyWebsiteSettings ===
+                "function"
+            ){
+
+                window.applyWebsiteSettings();
+
+            }
+
+        },
+
+        error => {
+
+            console.warn(
+                "Website settings listener:",
+                error.message
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   ADMIN PLAYERS TABLE
+   ========================================================= */
+
+window.renderPlayers = function(){
+
+    const body =
+        document.getElementById("playersBody");
+
+    if(!body) return;
+
+
+    const players =
+        window.CRYPTX_FIRESTORE.players || [];
+
+
+    if(!players.length){
+
+        body.innerHTML = `
+            <tr>
+                <td colspan="5"
+                    style="
+                        text-align:center;
+                        padding:30px;
+                        color:#667387;
+                    ">
+                    No players registered.
+                </td>
+            </tr>
+        `;
+
+        return;
+
+    }
+
+
+    body.innerHTML =
+        players.map(player => {
+
+            const solved =
+                Array.isArray(player.solved)
+                    ? player.solved
+                    : [];
+
+
+            return `
+
+                <tr>
+
+                    <td>
+                        <strong>
+                            ${escapeHTML(
+                                player.username || "Unknown"
+                            )}
+                        </strong>
+                    </td>
+
+
+                    <td>
+                        ${escapeHTML(
+                            player.email || ""
+                        )}
+                    </td>
+
+
+                    <td>
+                        <span class="score">
+                            ${Number(
+                                player.score || 0
+                            )} XP
+                        </span>
+                    </td>
+
+
+                    <td>
+                        ${solved.length}
+                    </td>
+
+
+                    <td>
+
+                        <button
+                            class="small-btn"
+                            onclick="
+                                disableFirebasePlayer(
+                                    '${player.id}'
+                                )
+                            "
+                        >
+                            ${
+                                player.disabled
+                                    ? "Enable"
+                                    : "Disable"
+                            }
+                        </button>
+
+                    </td>
+
+                </tr>
+
+            `;
+
+        }).join("");
+
+};
+
+
+/* =========================================================
+   ADMIN LEADERBOARD
+   ========================================================= */
+
+window.renderAdminLeaderboard = function(){
+
+    const body =
+        document.getElementById(
+            "adminLeaderboardBody"
+        );
+
+    if(!body) return;
+
+
+    const players =
+        [...(
+            window.CRYPTX_FIRESTORE.players || []
+        )]
+        .filter(
+            player =>
+                !player.disabled
+        )
+        .sort(
+            (a,b) =>
+                Number(b.score || 0) -
+                Number(a.score || 0)
+        );
+
+
+    body.innerHTML =
+        players.map((player,index) => {
+
+            const solved =
+                Array.isArray(player.solved)
+                    ? player.solved
+                    : [];
+
+
+            return `
+
+                <tr>
+
+                    <td>
+                        ${String(
+                            index + 1
+                        ).padStart(2,"0")}
+                    </td>
+
+
+                    <td>
+                        <strong>
+                            ${escapeHTML(
+                                player.username || ""
+                            )}
+                        </strong>
+                    </td>
+
+
+                    <td>
+                        ${escapeHTML(
+                            player.email || ""
+                        )}
+                    </td>
+
+
+                    <td>
+                        <span class="score">
+                            ${Number(
+                                player.score || 0
+                            )} XP
+                        </span>
+                    </td>
+
+
+                    <td>
+                        ${solved.length}
+                    </td>
+
+                </tr>
+
+            `;
+
+        }).join("");
+
+};
+
+
+/* =========================================================
+   ADMIN SUBMISSIONS
+   ========================================================= */
+
+window.renderSubmissions = function(){
+
+    const body =
+        document.getElementById(
+            "submissionsBody"
+        );
+
+    if(!body) return;
+
+
+    const submissions =
+        window.CRYPTX_FIRESTORE.submissions || [];
+
+
+    if(!submissions.length){
+
+        body.innerHTML = `
+            <tr>
+                <td colspan="5"
+                    style="
+                        text-align:center;
+                        padding:30px;
+                        color:#667387;
+                    ">
+                    No submissions yet.
+                </td>
+            </tr>
+        `;
+
+        return;
+
+    }
+
+
+    body.innerHTML =
+        submissions.map(submission => {
+
+            let time = "—";
+
+
+            if(
+                submission.time &&
+                typeof submission.time.toDate ===
+                "function"
+            ){
+
+                time =
+                    submission.time
+                    .toDate()
+                    .toLocaleString();
+
+            }
+
+
+            return `
+
+                <tr>
+
+                    <td>
+                        ${escapeHTML(
+                            submission.player || ""
+                        )}
+                    </td>
+
+
+                    <td>
+                        ${escapeHTML(
+                            submission.challenge || ""
+                        )}
+                    </td>
+
+
+                    <td>
+                        <code>
+                            ${escapeHTML(
+                                submission.submittedFlag ||
+                                ""
+                            )}
+                        </code>
+                    </td>
+
+
+                    <td>
+
+                        ${
+                            submission.correct === true
+                            ?
+                            `<span
+                                style="color:#00ff9d">
+                                CORRECT
+                             </span>`
+                            :
+                            `<span
+                                style="color:#ff6b81">
+                                ATTEMPT
+                             </span>`
+                        }
+
+                    </td>
+
+
+                    <td>
+                        ${escapeHTML(time)}
+                    </td>
+
+                </tr>
+
+            `;
+
+        }).join("");
+
+};
+
+
+/* =========================================================
+   ADMIN PLAYER ENABLE / DISABLE
+   ========================================================= */
+
+window.disableFirebasePlayer =
+async function(playerId){
+
+    if(
+        sessionStorage.getItem(
+            "cryptx_admin"
+        ) !== "true"
+    ){
+
+        toast(
+            "Administrator authentication required.",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    const player =
+        window.CRYPTX_FIRESTORE.players
+        .find(
+            p => p.id === playerId
+        );
+
+
+    if(!player) return;
+
+
+    try{
+
+        await updateDoc(
+            doc(db,"users",playerId),
+            {
+                disabled:!player.disabled,
+                updatedAt:serverTimestamp()
+            }
+        );
+
+
+        toast(
+            player.disabled
+                ? "Player enabled."
+                : "Player disabled.",
+            "success"
+        );
+
+
+    }catch(error){
+
+        console.error(error);
+
+        toast(
+            "Could not update player.",
+            "error"
+        );
+
+    }
+
+};
+
+
+/* =========================================================
+   FIREBASE PLAYER SYNC
+   ========================================================= */
+
+window.syncFirebasePlayer =
+async function(user,profile={}){
+
+    if(!user) return;
+
+
+    const playerData = {
+
+        uid:user.uid,
+
+        username:
+            profile.username ||
+            user.displayName ||
+            (user.email || "player")
+                .split("@")[0],
+
+        email:
+            user.email ||
+            profile.email ||
+            "",
+
+        score:
+            Number(
+                profile.score || 0
+            ),
+
+        solved:
+            Array.isArray(profile.solved)
+                ? profile.solved
+                : [],
+
+        disabled:
+            Boolean(
+                profile.disabled
+            ),
+
+        updatedAt:
+            serverTimestamp()
+
+    };
+
+
+    try{
+
+        await setDoc(
+            doc(
+                db,
+                "users",
+                user.uid
+            ),
+            playerData,
+            {
+                merge:true
+            }
+        );
+
+
+        localStorage.setItem(
+            "cryptx_current_player",
+            user.uid
+        );
+
+
+    }catch(error){
+
+        console.error(
+            "Player Firebase sync error:",
+            error
+        );
+
+    }
+
+};
+
+
+/* =========================================================
+   REFRESH UI
+   ========================================================= */
+
+function refreshAllUI(){
+
+    try{
+
+        if(
+            typeof window.updateStats ===
+            "function"
+        ){
+
+            window.updateStats();
+
+        }
+
+
+        if(
+            typeof window.renderChallenges ===
+            "function"
+        ){
+
+            window.renderChallenges();
+
+        }
+
+
+        if(
+            typeof window.renderLeaderboard ===
+            "function"
+        ){
+
+            window.renderLeaderboard();
+
+        }
+
+
+        if(
+            typeof window.renderPlayers ===
+            "function"
+        ){
+
+            window.renderPlayers();
+
+        }
+
+
+        if(
+            typeof window.renderSubmissions ===
+            "function"
+        ){
+
+            window.renderSubmissions();
+
+        }
+
+
+        if(
+            typeof window.renderAdminLeaderboard ===
+            "function"
+        ){
+
+            window.renderAdminLeaderboard();
+
+        }
+
+
+        if(
+            typeof window.renderAdminChallenges ===
+            "function"
+        ){
+
+            window.renderAdminChallenges();
+
+        }
+
+    }catch(error){
+
+        console.error(
+            "CRYPTX UI refresh error:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   START FIRESTORE SYNC
+   ========================================================= */
+
+listenPlayers();
+listenChallenges();
+listenSubmissions();
+listenAnnouncements();
+listenWebsite();
+
+
+/* =========================================================
+   FIREBASE AUTH STATE
+   ========================================================= */
+
+if(window.onAuthStateChanged){
+
+    window.onAuthStateChanged(
+        auth,
+        async user => {
+
+            if(user){
+
+                try{
+
+                    const snap =
+                        await window.getDoc(
+                            window.doc(
+                                db,
+                                "users",
+                                user.uid
+                            )
+                        );
+
+
+                    if(snap.exists()){
+
+                        await window.syncFirebasePlayer(
+                            user,
+                            snap.data()
+                        );
+
+                    }
+
+                }catch(error){
+
+                    console.error(
+                        "Auth player sync error:",
+                        error
+                    );
+
+                }
+
+
+                refreshAllUI();
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   FIRESTORE MODE STATUS
+   ========================================================= */
+
+const statusElements =
+    document.querySelectorAll(
+        ".admin-subtitle"
+    );
+
+
+console.log(
+    "===================================="
+);
+
+console.log(
+    "CRYPTX FIRESTORE MODE ENABLED"
+);
+
+console.log(
+    "Players      → Firestore/users"
+);
+
+console.log(
+    "Challenges   → Firestore/challenges"
+);
+
+console.log(
+    "Submissions  → Firestore/submissions"
+);
+
+console.log(
+    "Flags        → challengeSecrets"
+);
+
+console.log(
+    "===================================="
+);
+
+
+/* =========================================================
+   UPDATE ADMIN STATUS MESSAGE
+   ========================================================= */
+
+setTimeout(() => {
+
+    document
+        .querySelectorAll(
+            "#adminOverview p"
+        )
+        .forEach(element => {
+
+            if(
+                element.textContent
+                .includes(
+                    "browser/localStorage mode"
+                )
+            ){
+
+                element.textContent =
+                    "Your event is running in Firebase Firestore mode. Player, challenge and submission data are synchronized with the central database.";
+
+            }
+
+        });
+
+},1000);
+
+
+</script>
 </body>
 </html>
