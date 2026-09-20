@@ -5120,9 +5120,33 @@ function init(){
 
     applyWebsiteSettings();
 
-    runTimer();
+   /* =========================================================
+   ADMIN TIMER BUTTON COMPATIBILITY
+   ========================================================= */
 
-    updateTimerDisplay();
+window.startTimer = async function () {
+    const ok = await startEventTimer(7200);
+
+    if (ok && typeof toast === "function") {
+        toast("Event timer started.", "success");
+    }
+};
+
+window.pauseTimer = async function () {
+    const ok = await pauseEventTimer();
+
+    if (ok && typeof toast === "function") {
+        toast("Event timer paused.", "info");
+    }
+};
+
+window.resetTimer = async function () {
+    const ok = await resetEventTimer(7200);
+
+    if (ok && typeof toast === "function") {
+        toast("Event timer reset.", "success");
+    }
+};
 
     checkAdminSession();
     loadPublicChallengesFromFirebase();
@@ -6860,6 +6884,48 @@ import {
     }
 
     initializeFirebaseTimer();
+
+})();
+</script>
+   <a href="#admin"
+   id="cryptxPhoneAdmin"
+   style="
+     position:fixed;
+     right:15px;
+     bottom:15px;
+     z-index:99999;
+     padding:11px 15px;
+     border-radius:999px;
+     background:#00f5ff;
+     color:#001114;
+     font-weight:800;
+     font-size:11px;
+     text-decoration:none;
+     box-shadow:0 0 25px rgba(0,245,255,.35);
+   ">
+   ADMIN
+</a>
+
+<script>
+(function () {
+
+    function openAdminShortcut() {
+
+        if (location.hash.toLowerCase() !== "#admin") {
+            return;
+        }
+
+        setTimeout(function () {
+
+            if (typeof window.openAdminLogin === "function") {
+                window.openAdminLogin();
+            }
+
+        }, 800);
+    }
+
+    window.addEventListener("load", openAdminShortcut);
+    window.addEventListener("hashchange", openAdminShortcut);
 
 })();
 </script>
