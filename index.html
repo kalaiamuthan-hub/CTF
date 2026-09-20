@@ -6319,5 +6319,549 @@ setTimeout(() => {
 
 
 </script>
+   <script type="module">
+/* =========================================================
+   CRYPTX - FIREBASE EVENT TIMER FIX
+   ========================================================= */
+
+import {
+    doc,
+    getDoc,
+    setDoc,
+    onSnapshot,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+(function () {
+
+    let timerInterval = null;
+    let timerUnsubscribe = null;
+
+    const DEFAULT_TIMER = {
+        duration: 7200,
+        remaining: 7200,
+        running: false,
+        endAt: null
+    };
+
+    function getFirebaseDB() {
+        return window.db || null;
+    }
+
+    async function waitForFirebase() {
+        if (window.db && window.CRYPTX_AUTH_READY) {
+            return true;
+        }
+
+        return new Promise(resolve => {
+            let done = false;
+
+            const finish = () => {
+                if (done) return;
+                done = true;
+                resolve(!!window.db);
+            };
+
+            window.addEventListener(
+                "cryptx-firebase-ready",
+                finish,
+                { once: true }
+            );
+
+            setTimeout(finish, 10000);
+        });
+    }
+
+    function formatTime(totalSeconds) {
+
+        totalSeconds = Math.max(
+            0,
+            Math.floor(Number(totalSeconds) || 0)
+        );
+
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        const hh = String(hours).padStart(2, "0");
+        const mm = String(minutes).padStart(2, "0");
+        const ss = String(seconds).padStart(2, "0");
+
+        if (days > 0) {
+            return `${String(days).padStart(2, "0")}D ${hh}:${mm}:${ss}`;
+        }
+
+        return `${hh}:${mm}:${ss}`;
+    }
+
+    function calculateRemaining(timer) {
+
+        if (!timer) {
+            return 0;
+        }
+
+        if (
+            timer.running &&
+            timer.endAt
+        ) {
+
+            let endMilliseconds = 0;
+
+            if (
+                typeof timer.endAt === "object" &&
+                typeof timer.endAt.toMillis === "function"
+            ) {
+                endMilliseconds = timer.endAt.toMillis();
+            }
+            else if (
+                typeof timer.endAt === "string" ||
+                typeof timer.endAt === "number"
+            ) {
+                endMilliseconds =
+                    new Date(timer.endAt).getTime();
+
+                if (Number.isNaN(endMilliseconds)) {
+                    endMilliseconds =
+                        Number(timer.endAt);
+                }
+            }
+
+            if (endMilliseconds > 0) {
+                return Math.max(
+                    0,
+                    Math.ceil(
+                        (endMilliseconds - Date.now()) / 1000
+                    )
+                );
+            }
+        }
+
+        return Math.max(
+            0,
+            Number(timer.remaining) || 0
+        );
+    }
+
+    function findTimerElements() {
+
+        const selectors = [
+            "#eventTimer",
+            "#timerDisplay",
+            "#countdown",
+            ".countdown",
+            "[data-event-timer]",
+            "[data-timer]"
+        ];
+
+        const elements = [];
+
+        selectors.forEach(selector => {
+
+            document
+                .querySelectorAll(selector)
+                .forEach(el => {
+
+                    if (!elements.includes(el)) {
+                        elements.push(el);
+                    }
+
+                });
+
+        });
+
+        return elements;
+    }
+
+    function updateTimerDisplay(timer) {
+
+        const remaining = calculateRemaining(timer);
+        const formatted = formatTime(remaining);
+
+        const elements = findTimerElements();
+
+        elements.forEach(el => {
+            el.textContent = formatted;
+        });
+
+        /* Common IDs used by admin/public timer UI */
+        [
+            "eventTimer",
+            "timerDisplay",
+            "countdown",
+            "publicTimer",
+            "adminTimerDisplay"
+        ].forEach(id => {
+
+            const el = document.getElementById(id);
+
+            if (el) {
+                el.textContent = formatted;
+            }
+
+        });
+
+        /* Status text */
+        document
+            .querySelectorAll(
+                "#timerStatus,[data-timer-status]"
+            )
+            .forEach(el => {
+
+                if (remaining <= 0) {
+                    el.textContent = "EVENT ENDED";
+                }
+                else if (timer.running) {
+                    el.textContent = "EVENT LIVE";
+                }
+                else {
+                    el.textContent = "EVENT PAUSED";
+                }
+
+            });
+    }
+
+    function stopLocalTimer() {
+
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+    }
+
+    function startLocalTimer(timer) {
+
+        stopLocalTimer();
+
+        updateTimerDisplay(timer);
+
+        timerInterval = setInterval(() => {
+
+            updateTimerDisplay(timer);
+
+            if (calculateRemaining(timer) <= 0) {
+
+                stopLocalTimer();
+
+                timer = {
+                    ...timer,
+                    remaining: 0,
+                    running: false
+                };
+
+                updateTimerDisplay(timer);
+            }
+
+        }, 1000);
+    }
+
+    async function getTimer() {
+
+        const db = getFirebaseDB();
+
+        if (!db) {
+            return DEFAULT_TIMER;
+        }
+
+        try {
+
+            const ref = doc(
+                db,
+                "settings",
+                "timer"
+            );
+
+            const snap = await getDoc(ref);
+
+            if (!snap.exists()) {
+
+                await setDoc(
+                    ref,
+                    {
+                        ...DEFAULT_TIMER,
+                        updatedAt: serverTimestamp()
+                    },
+                    { merge: true }
+                );
+
+                return DEFAULT_TIMER;
+            }
+
+            return {
+                ...DEFAULT_TIMER,
+                ...snap.data()
+            };
+
+        }
+        catch (error) {
+
+            console.error(
+                "Timer read error:",
+                error
+            );
+
+            return DEFAULT_TIMER;
+        }
+    }
+
+    async function saveTimer(timer) {
+
+        const db = getFirebaseDB();
+
+        if (!db) {
+            console.error(
+                "Firebase DB is not ready."
+            );
+            return false;
+        }
+
+        try {
+
+            await setDoc(
+                doc(
+                    db,
+                    "settings",
+                    "timer"
+                ),
+                {
+                    duration:
+                        Number(timer.duration) || 0,
+
+                    remaining:
+                        Number(timer.remaining) || 0,
+
+                    running:
+                        Boolean(timer.running),
+
+                    endAt:
+                        timer.endAt || null,
+
+                    updatedAt:
+                        serverTimestamp()
+                },
+                { merge: true }
+            );
+
+            return true;
+
+        }
+        catch (error) {
+
+            console.error(
+                "Timer save error:",
+                error
+            );
+
+            alert(
+                "Timer save failed. Check Firebase Firestore rules."
+            );
+
+            return false;
+        }
+    }
+
+    async function startEventTimer(durationSeconds) {
+
+        const seconds = Math.max(
+            1,
+            Number(durationSeconds) || 7200
+        );
+
+        const endAt = new Date(
+            Date.now() + seconds * 1000
+        ).toISOString();
+
+        const timer = {
+            duration: seconds,
+            remaining: seconds,
+            running: true,
+            endAt: endAt
+        };
+
+        const saved = await saveTimer(timer);
+
+        if (saved) {
+            startLocalTimer(timer);
+        }
+
+        return saved;
+    }
+
+    async function pauseEventTimer() {
+
+        const current = await getTimer();
+
+        const remaining =
+            calculateRemaining(current);
+
+        const timer = {
+            ...current,
+            remaining: remaining,
+            running: false,
+            endAt: null
+        };
+
+        const saved = await saveTimer(timer);
+
+        if (saved) {
+            stopLocalTimer();
+            updateTimerDisplay(timer);
+        }
+
+        return saved;
+    }
+
+    async function resetEventTimer(durationSeconds) {
+
+        const seconds = Math.max(
+            1,
+            Number(durationSeconds) ||
+            7200
+        );
+
+        const timer = {
+            duration: seconds,
+            remaining: seconds,
+            running: false,
+            endAt: null
+        };
+
+        const saved = await saveTimer(timer);
+
+        if (saved) {
+            stopLocalTimer();
+            updateTimerDisplay(timer);
+        }
+
+        return saved;
+    }
+
+    function subscribeTimer() {
+
+        const db = getFirebaseDB();
+
+        if (!db) {
+            console.warn(
+                "Firebase DB unavailable for timer."
+            );
+            return;
+        }
+
+        if (timerUnsubscribe) {
+            timerUnsubscribe();
+            timerUnsubscribe = null;
+        }
+
+        timerUnsubscribe = onSnapshot(
+            doc(
+                db,
+                "settings",
+                "timer"
+            ),
+
+            snap => {
+
+                const timer = snap.exists()
+                    ? {
+                        ...DEFAULT_TIMER,
+                        ...snap.data()
+                    }
+                    : DEFAULT_TIMER;
+
+                updateTimerDisplay(timer);
+
+                if (
+                    timer.running &&
+                    calculateRemaining(timer) > 0
+                ) {
+                    startLocalTimer(timer);
+                }
+                else {
+                    stopLocalTimer();
+                }
+
+            },
+
+            error => {
+
+                console.error(
+                    "Timer realtime listener error:",
+                    error
+                );
+
+            }
+        );
+    }
+
+    /*
+     * Public API
+     */
+    window.CRYPTX_TIMER = {
+        get: getTimer,
+        save: saveTimer,
+        start: startEventTimer,
+        pause: pauseEventTimer,
+        reset: resetEventTimer,
+        subscribe: subscribeTimer,
+        updateDisplay: updateTimerDisplay
+    };
+
+    /*
+     * Compatibility with existing code
+     */
+    window.runTimer = async function () {
+
+        const timer = await getTimer();
+
+        updateTimerDisplay(timer);
+
+        if (
+            timer.running &&
+            calculateRemaining(timer) > 0
+        ) {
+            startLocalTimer(timer);
+        }
+        else {
+            stopLocalTimer();
+        }
+
+    };
+
+    window.updateTimerDisplay = async function () {
+
+        const timer = await getTimer();
+
+        updateTimerDisplay(timer);
+
+    };
+
+    /*
+     * Start Firebase timer
+     */
+    async function initializeFirebaseTimer() {
+
+        const ready = await waitForFirebase();
+
+        if (!ready) {
+            console.error(
+                "CRYPTX: Firebase not ready for timer."
+            );
+            return;
+        }
+
+        await runTimer();
+
+        subscribeTimer();
+
+        console.log(
+            "CRYPTX: Firebase Event Timer connected."
+        );
+    }
+
+    initializeFirebaseTimer();
+
+})();
+</script>
 </body>
 </html>
