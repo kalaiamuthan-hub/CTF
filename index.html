@@ -200,6 +200,24 @@ body::after{
     align-items:center;
 }
 
+.mobile-menu-btn{
+    display:none;
+    width:42px;
+    height:42px;
+    border:1px solid rgba(0,245,255,.22);
+    border-radius:10px;
+    background:rgba(0,245,255,.05);
+    color:var(--cyan);
+    font-size:22px;
+    cursor:pointer;
+    align-items:center;
+    justify-content:center;
+}
+
+.mobile-menu{
+    display:none;
+}
+
 .btn{
     border:1px solid var(--border);
     background:rgba(255,255,255,.04);
@@ -1494,21 +1512,157 @@ tr:last-child td{
     }
 }
 
+
 @media(max-width:750px){
+    .navbar{
+        height:64px;
+    }
+
+    .nav-inner{
+        width:calc(100% - 24px);
+        gap:10px;
+    }
+
+    .logo{
+        min-width:0;
+    }
+
+    .logo-text{
+        font-size:16px;
+        letter-spacing:2px;
+    }
+
     .nav-links{
         display:none;
     }
 
-    .nav-actions .admin-nav-btn{
-        display:none;
+    .mobile-menu-btn{
+        display:flex;
+        margin-left:auto;
+        flex-shrink:0;
     }
 
-    .logo-text{
-        font-size:17px;
+    .nav-actions{
+        gap:5px;
+        flex-shrink:0;
+    }
+
+    .nav-actions .btn{
+        padding:8px 9px;
+        font-size:10px;
+    }
+
+    .mobile-menu{
+        position:fixed;
+        top:64px;
+        left:12px;
+        right:12px;
+        z-index:110;
+        padding:10px;
+        border:1px solid rgba(0,245,255,.16);
+        border-radius:14px;
+        background:rgba(5,8,15,.97);
+        backdrop-filter:blur(20px);
+        box-shadow:0 20px 60px rgba(0,0,0,.55);
+    }
+
+    .mobile-menu.open{
+        display:block;
+    }
+
+    .mobile-menu-inner{
+        display:grid;
+        gap:5px;
+    }
+
+    .mobile-menu button{
+        width:100%;
+        padding:13px 14px;
+        text-align:left;
+        border:1px solid transparent;
+        border-radius:9px;
+        background:rgba(255,255,255,.025);
+        color:#b7c2d2;
+        font-size:13px;
+        font-weight:700;
+        cursor:pointer;
+    }
+
+    .mobile-menu button:hover,
+    .mobile-menu button:active{
+        color:var(--cyan);
+        border-color:rgba(0,245,255,.2);
+        background:rgba(0,245,255,.05);
+    }
+
+    .page{
+        padding-top:64px;
+    }
+
+    .hero{
+        min-height:calc(100vh - 64px);
+    }
+
+    .hero-grid{
+        width:min(100% - 28px,1250px);
+        padding:45px 0 55px;
+        gap:30px;
     }
 
     .hero h1{
-        font-size:58px;
+        font-size:clamp(46px,15vw,72px);
+        letter-spacing:-3px;
+    }
+
+    .hero-description{
+        font-size:14px;
+        line-height:1.7;
+    }
+
+    .hero-terminal{
+        width:100%;
+    }
+
+    .terminal-body{
+        padding:18px;
+        font-size:10px;
+        min-height:300px;
+        overflow-x:auto;
+    }
+
+    .section{
+        padding:65px 0;
+    }
+
+    .container{
+        width:calc(100% - 28px);
+    }
+
+    .section-title{
+        font-size:25px;
+    }
+
+    .challenge-toolbar{
+        display:block;
+    }
+
+    .search{
+        width:100%;
+    }
+
+    .search input{
+        width:100%;
+    }
+
+    .filters{
+        margin-top:10px;
+        overflow-x:auto;
+        flex-wrap:nowrap;
+        padding-bottom:3px;
+    }
+
+    .filter-btn{
+        flex:0 0 auto;
     }
 
     .challenge-grid,
@@ -1518,6 +1672,28 @@ tr:last-child td{
 
     .stats{
         grid-template-columns:1fr 1fr;
+        width:calc(100% - 28px);
+    }
+
+    .flag-input-wrap{
+        flex-direction:column;
+    }
+
+    .modal-overlay{
+        padding:10px;
+    }
+
+    .modal{
+        max-height:94vh;
+        border-radius:14px;
+    }
+
+    .modal-body{
+        padding:16px;
+    }
+
+    .detail-banner{
+        height:170px;
     }
 
     .admin-layout{
@@ -1529,7 +1705,7 @@ tr:last-child td{
     }
 
     .admin-main{
-        padding:18px;
+        padding:16px;
     }
 
     .form-grid{
@@ -1548,50 +1724,44 @@ tr:last-child td{
         order:-1;
     }
 
-    .search input{
-        width:100%;
-    }
-
-    .search{
-        width:100%;
-    }
-
-    .challenge-toolbar{
-        display:block;
-    }
-
-    .filters{
-        margin-top:10px;
-    }
-
-    .flag-input-wrap{
-        flex-direction:column;
+    .table-wrap{
+        overflow-x:auto;
+        -webkit-overflow-scrolling:touch;
     }
 }
 
 @media(max-width:450px){
     .nav-actions .btn{
-        padding:9px;
-        font-size:10px;
+        padding:8px;
+        font-size:9px;
     }
 
-    .hero h1{
-        font-size:47px;
-        letter-spacing:-3px;
+    .nav-actions .btn-primary{
+        display:none;
+    }
+
+    .logo-mark{
+        width:34px;
+        height:34px;
+    }
+
+    .logo-text{
+        font-size:14px;
+    }
+
+    .hero-buttons .btn{
+        width:100%;
     }
 
     .stats{
         grid-template-columns:1fr;
     }
 
-    .admin-stats{
-        grid-template-columns:1fr 1fr;
-    }
-
-    .hero-buttons .btn{
-        width:100%;
+    .terminal-body{
+        font-size:9px;
     }
 }
+
 </style>
 </head>
 
@@ -1616,6 +1786,10 @@ tr:last-child td{
             <button id="navRules" onclick="showPage('rules')">Rules</button>
         </div>
 
+        <button class="mobile-menu-btn" id="mobileMenuBtn"
+                type="button" aria-label="Open menu" aria-expanded="false"
+                onclick="toggleMobileMenu()">☰</button>
+
         <div class="nav-actions" id="navActions">
             <button class="btn" onclick="openLogin()">Login</button>
             <button class="btn btn-primary" onclick="openRegister()">Register</button>
@@ -1624,6 +1798,14 @@ tr:last-child td{
     </div>
 </nav>
 
+<div class="mobile-menu" id="mobileMenu">
+    <div class="mobile-menu-inner">
+        <button onclick="mobileNavigate('home')">Home</button>
+        <button onclick="mobileNavigate('challenges')">Challenges</button>
+        <button onclick="mobileNavigate('leaderboard')">Leaderboard</button>
+        <button onclick="mobileNavigate('rules')">Rules</button>
+    </div>
+</div>
 
 <!-- =========================================================
      HOME PAGE
@@ -2592,7 +2774,7 @@ tr:last-child td{
                 <label>Password</label>
                 <input id="loginPassword"
                        type="password"
-                       placeholder="••••••••">\n        <button type="button" onclick="resetPlayerPassword()" style="background:none;border:0;color:#8b5cf6;cursor:pointer;padding:6px 0;font-size:13px;">Forgot Password?</button>
+                       placeholder="••••••••">      <button type="button" onclick="resetPlayerPassword()" style="background:none;border:0;color:#8b5cf6;cursor:pointer;padding:6px 0;font-size:13px;">Forgot Password?</button>
             </div>
 
             <button class="btn btn-primary auth-submit"
@@ -2743,7 +2925,7 @@ tr:last-child td{
             </button>
 
             <p style="margin-top:15px;color:#3f4b5c;font-size:9px">
-                Firebase admin account required • Ctrl+Shift+A opens this gate
+               
             </p>
 
         </div>
@@ -3769,6 +3951,41 @@ function currentPlayer(){
    NAVBAR UPDATE
    ========================================================= */
 
+function toggleMobileMenu(){
+    const menu=document.getElementById("mobileMenu");
+    const btn=document.getElementById("mobileMenuBtn");
+    if(!menu || !btn) return;
+
+    const open=menu.classList.toggle("open");
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    btn.textContent=open ? "×" : "☰";
+}
+
+function closeMobileMenu(){
+    const menu=document.getElementById("mobileMenu");
+    const btn=document.getElementById("mobileMenuBtn");
+    if(!menu || !btn) return;
+
+    menu.classList.remove("open");
+    btn.setAttribute("aria-expanded","false");
+    btn.textContent="☰";
+}
+
+function mobileNavigate(page){
+    closeMobileMenu();
+    showPage(page);
+}
+
+document.addEventListener("click", function(event){
+    const menu=document.getElementById("mobileMenu");
+    const btn=document.getElementById("mobileMenuBtn");
+    if(!menu || !menu.classList.contains("open")) return;
+
+    if(!menu.contains(event.target) && !btn.contains(event.target)){
+        closeMobileMenu();
+    }
+});
+
 function updateNavbar(){
 
     const nav=document.getElementById("navActions");
@@ -3906,7 +4123,7 @@ function renderChallenges(){
             ||
             c.category.toLowerCase().includes(search)
             ||
-            c.question.toLowerCase().includes(search);
+            cleanDisplayText(c.question).toLowerCase().includes(search);
 
         return categoryMatch && searchMatch;
 
@@ -4102,7 +4319,7 @@ function openChallenge(id){
             </div>
 
             <div class="question-text">
-                ${escapeHTML(challenge.question)}
+                ${escapeHTML(cleanDisplayText(challenge.question))}
             </div>
 
         </div>
@@ -5083,7 +5300,7 @@ attachFirebaseSession();
      localStorage EVENT DATA -> FIRESTORE
      ========================================================= -->
 
-```html
+
 <!-- =========================================================
      CRYPTX - CORRECTED FIREBASE EVENT TIMER
      Replace the entire old timer module with this block.
