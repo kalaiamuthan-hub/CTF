@@ -1837,6 +1837,36 @@ tr:last-child td{
  .logo-text{font-size:14px!important;}
 }
 
+
+/* FINAL MOBILE HEADER OVERLAY FIX */
+@media (max-width:750px){
+  .navbar{position:fixed!important;top:0!important;left:0!important;right:0!important;width:100%!important;height:64px!important;z-index:1000!important;box-sizing:border-box!important;}
+  .nav-inner{width:calc(100% - 16px)!important;height:64px!important;margin:0 auto!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;box-sizing:border-box!important;}
+  .logo{min-width:0!important;flex:1 1 auto!important;display:flex!important;align-items:center!important;overflow:hidden!important;}
+  .logo-text{white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;font-size:14px!important;}
+  .nav-links{display:none!important;}
+  .nav-actions{display:none!important;}
+  .mobile-menu-btn{display:flex!important;flex:0 0 40px!important;width:40px!important;height:40px!important;margin:0!important;align-items:center!important;justify-content:center!important;z-index:1002!important;}
+  .mobile-menu{top:64px!important;left:8px!important;right:8px!important;width:auto!important;max-height:calc(100vh - 74px)!important;overflow-y:auto!important;z-index:1001!important;box-sizing:border-box!important;}
+  .page{padding-top:64px!important;}
+  .hero{min-height:calc(100vh - 64px)!important;}
+  body{overflow-x:hidden!important;}
+}
+@media (max-width:420px){
+  .nav-inner{width:calc(100% - 12px)!important;}
+  .logo-mark{width:34px!important;height:34px!important;min-width:34px!important;}
+}
+
+
+/* MOBILE LOGIN PROFILE OVERLAY FIX */
+@media (max-width:750px){
+  .navbar .nav-actions{display:none!important;visibility:hidden!important;width:0!important;max-width:0!important;overflow:hidden!important;}
+  .mobile-menu{display:none;position:fixed!important;top:64px!important;left:8px!important;right:8px!important;width:auto!important;max-width:calc(100vw - 16px)!important;z-index:1001!important;}
+  .mobile-menu.open{display:block!important;}
+  .mobile-player-actions,.mobile-auth-actions{width:100%!important;box-sizing:border-box!important;overflow:hidden!important;}
+  .mobile-menu button{max-width:100%!important;box-sizing:border-box!important;white-space:normal!important;word-break:break-word!important;}
+  .player-name{max-width:120px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;}
+}
 </style>
 </head>
 
@@ -4139,6 +4169,14 @@ function updateNavbar(){
 
     if(mobileAuth) mobileAuth.style.display = player ? "none" : "grid";
     if(mobilePlayer) mobilePlayer.style.display = player ? "grid" : "none";
+
+    // On mobile, keep the logged-in username inside the mobile menu only.
+    // Do not inject the profile chip into the desktop nav area because that
+    // can overflow/overlay the fixed mobile header.
+    const mobileProfileBtn = mobilePlayer?.querySelector("button");
+    if(mobileProfileBtn && player){
+        mobileProfileBtn.textContent = (player.username || "Profile") + " / XP";
+    }
 
     if(player){
 
